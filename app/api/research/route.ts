@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { callGemini, parseGeminiJson } from "@/lib/gemini";
+import { callGeminiWithRetry, parseGeminiJson } from "@/lib/gemini";
 import { searchSerper } from "@/lib/serper";
 import { supabase } from "@/lib/supabase";
 import type { Company } from "@/types";
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       `summary, business_model, tam_estimate, competitors (array of strings), growth_priorities (array of strings), hiring_signals (array of strings).`,
     ].join("\n");
 
-    const raw = await callGemini(prompt);
+    const raw = await callGeminiWithRetry(prompt);
     const intel = parseGeminiJson<GeminiIntel>(raw);
 
     const { error: insertError } = await supabase.from("company_intel").insert({
@@ -72,14 +72,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     const detail = err instanceof Error ? err.message : "Unknown error";
-    console.error(detail);
-    const isSerperError = detail.toLowerCase().includes("serper");
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error("Research API error:", detail);
+    if (stack) {
+      console.error(stack);
+    }
     return NextResponse.json(
       {
-        error: isSerperError ? detail : "Failed to generate. Try again.",
-        ...(req.headers.get("x-debug") === "1" && process.env.NODE_ENV !== "production" ? { detail } : {}),
+        error: detail,
+        ...(stack ? { stack } : {}),
       },
-      { status: isSerperError ? 502 : 500 },
+      { status: 500 },
     );
   }
 }

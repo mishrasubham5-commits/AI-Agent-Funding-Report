@@ -33,18 +33,23 @@ export async function searchSerper(query: string): Promise<SerperOrganicResult[]
     throw new Error(`Serper request failed (${res.status}): ${bodyText || "Unknown error"}`);
   }
 
-  const data = (await res.json()) as SerperResponse;
-  if (data.error || data.message) {
-    throw new Error(`Serper request failed: ${data.error ?? data.message}`);
+  const serperData = (await res.json()) as SerperResponse | null;
+
+  if (!serperData) {
+    return [];
   }
 
-  const items = Array.isArray(data?.organic) ? data.organic : [];
+  if (serperData.error || serperData.message) {
+    throw new Error(`Serper request failed: ${serperData.error ?? serperData.message}`);
+  }
 
-  if (data.organic != null && !Array.isArray(data.organic)) {
+  const items = serperData?.organic || [];
+
+  if (serperData?.organic != null && !Array.isArray(serperData.organic)) {
     throw new Error("Serper response is invalid: expected organic to be an array.");
   }
 
-  return items
+  return (Array.isArray(items) ? items : [])
     .map((r, idx) => ({
       title: r.title ?? "",
       link: r.link ?? "",

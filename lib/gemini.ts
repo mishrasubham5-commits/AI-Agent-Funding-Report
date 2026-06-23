@@ -29,7 +29,11 @@ interface GeminiErrorResponse {
   };
 }
 
-export async function callGemini(prompt: string): Promise<string> {
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function callGeminiOnce(prompt: string): Promise<string> {
   const apiKey = normalizeEnvValue(process.env.GEMINI_API_KEY);
   if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
 
@@ -60,6 +64,10 @@ export async function callGemini(prompt: string): Promise<string> {
         continue;
       }
 
+      if (res.status === 503) {
+        throw new Error(`Gemini request failed (503): ${message}`);
+      }
+
       throw new Error(`Gemini request failed (${res.status}): ${message}`);
     }
 
@@ -73,8 +81,43 @@ export async function callGemini(prompt: string): Promise<string> {
   throw new Error(lastError ?? "Gemini request failed");
 }
 
+export async function callGeminiWithRetry(prompt: string, maxRetries = 3): Promise<string> {
+  let attempt = 0;
+  let lastError: Error | null = null;
+
+  while (attempt < maxRetries) {
+    try {
+      return await callGeminiOnce(prompt);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error("Unknown Gemini error");
+      lastError = error;
+      attempt += 1;
+
+      if (!error.message.includes("(503)") || attempt >= maxRetries) {
+        break;
+      }
+
+      await delay(attempt * 2000);
+    }
+  }
+
+  if (lastError?.message.includes("(503)")) {
+    throw new Error("Gemini is temporarily unavailable after 3 retries. Please try again.");
+  }
+
+  throw lastError ?? new Error("Gemini request failed");
+}
+
+export async function callGemini(prompt: string): Promise<string> {
+  return callGeminiWithRetry(prompt);
+}
+
 export function parseGeminiJson<T>(raw: string): T {
-  const stripped = stripMarkdownCodeFences(raw);
+  const stripped = stripMarkdownCodeFences(raw)
+    .replace(/```json/gi, "")
+    .replace(/json/gi, "")
+    .replace(/```/g, "")
+    .trim();
   const jsonSlice = extractJsonSubstring(stripped) ?? stripped;
   const parsed = safeJsonParse<T>(jsonSlice);
   if (!parsed.ok) {

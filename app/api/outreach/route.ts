@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { callGemini, parseGeminiJson } from "@/lib/gemini";
+import { callGeminiWithRetry, parseGeminiJson } from "@/lib/gemini";
 import { supabase } from "@/lib/supabase";
 import type { Company, CompanyIntel, ImpactPlan } from "@/types";
 
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
       `Variant 3: Soft LinkedIn intro.`,
     ].join("\n");
 
-    const raw = await callGemini(prompt);
+    const raw = await callGeminiWithRetry(prompt);
     const drafts = parseGeminiJson<GeminiOutreachDraft[]>(raw).slice(0, 3);
 
     const insertRows = drafts.map((d) => ({

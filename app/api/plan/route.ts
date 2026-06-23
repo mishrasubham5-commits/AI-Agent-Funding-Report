@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { callGemini, parseGeminiJson } from "@/lib/gemini";
+import { callGeminiWithRetry, parseGeminiJson } from "@/lib/gemini";
 import { supabase } from "@/lib/supabase";
 import type { Company, CompanyIntel, ImpactPlanMonth } from "@/types";
 
@@ -26,7 +26,12 @@ export async function POST(req: Request) {
     ]);
 
     if (!companyData) return NextResponse.json({ error: "Company not found" }, { status: 404 });
-    if (!intelData) return NextResponse.json({ error: "Missing intel" }, { status: 400 });
+    if (!intelData) {
+      return NextResponse.json(
+        { error: "Research not found. Please generate research first." },
+        { status: 400 },
+      );
+    }
 
     const company = companyData as Company;
     const intel = intelData as CompanyIntel;
@@ -40,7 +45,7 @@ export async function POST(req: Request) {
       `Return ONLY valid JSON (no markdown, no code fences) with keys month_1..month_6. Each month is an object: {objective: string, key_results: string[], initiatives: string[]}.`,
     ].join("\n");
 
-    const raw = await callGemini(prompt);
+    const raw = await callGeminiWithRetry(prompt);
     const months = parseGeminiJson<GeminiPlan>(raw);
 
     const { error: insertError } = await supabase.from("impact_plans").insert({
@@ -52,7 +57,19 @@ export async function POST(req: Request) {
     await supabase.from("companies").update({ status: "planned" }).eq("id", companyId);
 
     return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: "Failed to generate. Try again." }, { status: 500 });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : "Unknown error";
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error("Plan API error:", detail);
+    if (stack) {
+      console.error(stack);
+    }
+    return NextResponse.json(
+      {
+        error: detail,
+        ...(stack ? { stack } : {}),
+      },
+      { status: 500 },
+    );
   }
 }

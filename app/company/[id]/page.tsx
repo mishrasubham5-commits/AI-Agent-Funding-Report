@@ -123,7 +123,7 @@ export default function CompanyDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-10">
+    <div id="report-export-root" className="mx-auto w-full max-w-6xl px-4 py-10">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">

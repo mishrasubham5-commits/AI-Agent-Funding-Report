@@ -13,13 +13,12 @@
 - `NEWSAPI_KEY`
 - `SERPER_API_KEY`
 - `GEMINI_API_KEY`
-- Optional for PDF export fallback: `PUPPETEER_EXECUTABLE_PATH`
 
 ## Security
 - Server-only keys stay in Vercel env vars only
 - `.env.local` is not committed
-- Supabase RLS/storage policies must already be configured
-- Storage bucket `reports` must exist before PDF export works
+- Supabase RLS policies must already be configured
+- PDF export runs only in the browser and does not rely on Chromium on Vercel
 
 ## Runtime & Routes
 - API routes exist:
@@ -27,8 +26,8 @@
 - `POST /api/research`
 - `POST /api/plan`
 - `POST /api/outreach`
-- `POST /api/generate-report`
 - API routes use Node.js runtime (`export const runtime = "nodejs"`)
+- PDF export uses `html2pdf.js` in the browser; no server-side PDF route is required
 - `next.config.ts` sets project root for file tracing / turbopack
 
 ## Local Verification (Before Deploy)
@@ -40,7 +39,7 @@
 - `Generate Research` works
 - `Generate Plan` works
 - `Generate Outreach` works
-- `Export Package` works after Storage bucket/policies are configured
+- `Export Package` downloads a PDF directly from the browser
 
 ## Post-Deploy Verification
 - Open deployed URL and load `/`
@@ -49,4 +48,4 @@
 - Test `Export Package`
 - If research fails: confirm `SERPER_API_KEY` and `GEMINI_API_KEY`
 - If discover fails: confirm `NEWSAPI_KEY`
-- If PDF export fails: confirm bucket `reports` exists and Storage policies allow upload/read
+- If PDF export fails: confirm the detail page renders fully in the browser and `html2pdf.js` is installed

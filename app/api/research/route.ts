@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     const sources = [...competitors, ...businessModel, ...jobs].slice(0, 20);
 
     const prompt = [
-      `You are a VC analyst. Analyze ${company.name}.`,
+      `Analyze the company ${company.name} based on these search results and funding details.`,
       `Funding: ${company.funding_amount ?? "unknown"}.`,
       `Search results: ${JSON.stringify(sources)}.`,
       `Return ONLY valid JSON (no markdown, no code fences) with keys:`,
